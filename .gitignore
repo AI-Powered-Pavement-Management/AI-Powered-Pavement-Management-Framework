@@ -1,7 +1,6 @@
 node_modules/
+.venv/
 __pycache__/
 *.pkl
 .env
-.expo/
 dist/
-.DS_Store
