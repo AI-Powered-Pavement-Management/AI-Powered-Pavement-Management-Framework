@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional
+from agent.graph import run_agent
 
 app = FastAPI(title="PCI Prediction API")
 
@@ -33,14 +34,9 @@ def home():
 
 @app.post("/predict")
 def predict(data: PavementInput):
-    # FAKE hard-coded answer for now. Student A's model replaces this on Day 6.
-    return {
-        "pci": 78,
-        "band": "Good",
-        "factors": [
-            {"name": "Low IRI (smooth)", "value": 9.1},
-            {"name": "Thick AC layer", "value": 5.4},
-            {"name": "Age of section", "value": -6.2},
-        ],
-        "note": "Fake result — real model connects on Day 6",
-    }
+    input_dict = data.dict()
+    try:
+        result = run_agent(input_dict)
+    except Exception as e:
+        return {"pci": None, "band": "Error", "factors": [], "note": f"Agent failed: {str(e)}"}
+    return result

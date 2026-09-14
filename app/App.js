@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { ScrollView, View, Text, TextInput, TouchableOpacity, StyleSheet } from "react-native";
 
+const API_URL = "http://127.0.0.1:8000/predict";
+
 const GROUPS = [
   { title: "Pavement structure", fields: [
     ["Age", "Age (years)"], ["TTh", "Total thickness TTh"],
@@ -14,29 +16,49 @@ const GROUPS = [
     ["Sieve200_base", "Sieve 200 base/subbase"] ] },
 ];
 
-function mockPredict(data) {
-  let pci = 100;
-  pci -= (parseFloat(data.Age) || 0) * 1.5;
-  pci -= (parseFloat(data.MIRI) || 0) * 8;
-  return Math.max(0, Math.min(100, Math.round(pci)));
-}
+const ALL_FIELDS = ["Age","TTh","ATh","TAP","MAAT","FI","MIRI","PI","AADTT","Sieve200_subgrade","Sieve200_base"];
+
 function band(pci) {
   if (pci >= 70) return { label: "Good", color: "#2E7D46", bg: "#E7F1E9" };
   if (pci >= 40) return { label: "Fair", color: "#C77D12", bg: "#FBF1E1" };
   return { label: "Poor", color: "#C0392B", bg: "#F8E9E7" };
 }
 
-const WHY = [
-  { name: "Low IRI (smooth)", value: 9.1 },
-  { name: "Thick AC layer", value: 5.4 },
-  { name: "Age of section", value: -6.2 },
-];
-
 export default function App() {
   const [values, setValues] = useState({});
   const [result, setResult] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [decision, setDecision] = useState(null);
+
   const setField = (k, v) => setValues({ ...values, [k]: v });
-  const b = result !== null ? band(result) : null;
+
+  async function handlePredict() {
+    setLoading(true);
+    setError(null);
+    setResult(null);
+    setDecision(null);
+    const payload = {};
+    ALL_FIELDS.forEach((k) => {
+      const v = values[k];
+      payload[k] = (v === undefined || v === "") ? null : parseFloat(v);
+    });
+    try {
+      const res = await fetch(API_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      setResult(data);
+    } catch (e) {
+      setError("Could not reach API. Is uvicorn running on port 8000?");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  const b = result && result.pci != null ? band(result.pci) : null;
 
   return (
     <ScrollView
@@ -63,45 +85,60 @@ export default function App() {
         </View>
       ))}
 
-      <TouchableOpacity style={styles.btn} onPress={() => setResult(mockPredict(values))}>
-        <Text style={styles.btnText}>Predict PCI</Text>
+      <TouchableOpacity style={styles.btn} onPress={handlePredict} disabled={loading}>
+        <Text style={styles.btnText}>{loading ? "Predicting..." : "Predict PCI"}</Text>
       </TouchableOpacity>
 
-      {result !== null && (
-        <View style={[styles.result, { backgroundColor: b.bg }]}>
-          <Text style={[styles.score, { color: b.color }]}>{result}</Text>
-          <Text style={[styles.verdict, { color: b.color }]}>{b.label} condition</Text>
-          <Text style={styles.note}>Mock result — real model connects on Day 6</Text>
+      {error && (
+        <View style={styles.errorBox}><Text style={styles.errorText}>{error}</Text></View>
+      )}
 
-          {/* WHY section — mock SHAP factors, replaced by real API on Day 6 */}
-          <View style={styles.why}>
-            <Text style={styles.whyTitle}>Why — top contributing factors</Text>
-            {WHY.map((f) => {
-              const pos = f.value >= 0;
-              const c = pos ? "#2E7D46" : "#C0392B";
-              const w = Math.min(100, Math.abs(f.value) * 8);
-              return (
-                <View key={f.name} style={styles.whyRow}>
-                  <Text style={styles.whyName}>{f.name}</Text>
-                  <View style={styles.whyBar}>
-                    <View style={{ width: `${w}%`, height: "100%", backgroundColor: c }} />
+      {result && b && (
+        <View style={[styles.result, { backgroundColor: b.bg }]}>
+          <Text style={[styles.score, { color: b.color }]}>{result.pci}</Text>
+          <Text style={[styles.verdict, { color: b.color }]}>{b.label} condition</Text>
+          <Text style={styles.note}>{result.note}</Text>
+
+          {result.factors && result.factors.length > 0 && (
+            <View style={styles.why}>
+              <Text style={styles.whyTitle}>Why — top contributing factors</Text>
+              {result.factors.map((f) => {
+                const pos = f.value >= 0;
+                const c = pos ? "#2E7D46" : "#C0392B";
+                const w = Math.min(100, Math.abs(f.value) * 8);
+                return (
+                  <View key={f.name} style={styles.whyRow}>
+                    <Text style={styles.whyName}>{f.name}</Text>
+                    <View style={styles.whyBar}>
+                      <View style={{ width: `${w}%`, height: "100%", backgroundColor: c }} />
+                    </View>
+                    <Text style={[styles.whyVal, { color: c }]}>
+                      {pos ? "+" : "−"}{Math.abs(f.value)}
+                    </Text>
                   </View>
-                  <Text style={[styles.whyVal, { color: c }]}>
-                    {pos ? "+" : "−"}{Math.abs(f.value)}
-                  </Text>
-                </View>
-              );
-            })}
-          </View>
+                );
+              })}
+            </View>
+          )}
 
           <View style={styles.decide}>
-            <TouchableOpacity style={[styles.dBtn, { borderColor: "#2E7D46" }]}>
-              <Text style={styles.dText}>Approve</Text>
+            <TouchableOpacity
+              onPress={() => setDecision("approved")}
+              style={[styles.dBtn, { borderColor: "#2E7D46", backgroundColor: decision === "approved" ? "#2E7D46" : "#fff" }]}>
+              <Text style={[styles.dText, { color: decision === "approved" ? "#fff" : "#2E7D46" }]}>Approve</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={[styles.dBtn, { borderColor: "#C0392B" }]}>
-              <Text style={[styles.dText, { color: "#C0392B" }]}>Reject</Text>
+            <TouchableOpacity
+              onPress={() => setDecision("rejected")}
+              style={[styles.dBtn, { borderColor: "#C0392B", backgroundColor: decision === "rejected" ? "#C0392B" : "#fff" }]}>
+              <Text style={[styles.dText, { color: decision === "rejected" ? "#fff" : "#C0392B" }]}>Reject</Text>
             </TouchableOpacity>
           </View>
+
+          {decision && (
+            <Text style={[styles.decisionMsg, { color: decision === "approved" ? "#2E7D46" : "#C0392B" }]}>
+              {decision === "approved" ? "✓ Approved by engineer" : "✕ Rejected by engineer"}
+            </Text>
+          )}
         </View>
       )}
     </ScrollView>
@@ -119,12 +156,12 @@ const styles = StyleSheet.create({
   btn: { height: 46, backgroundColor: "#2E5E8C", borderRadius: 9,
          alignItems: "center", justifyContent: "center", marginTop: 6 },
   btnText: { color: "#fff", fontSize: 15, fontWeight: "600" },
-
+  errorBox: { marginTop: 14, padding: 12, backgroundColor: "#F8E9E7", borderRadius: 8 },
+  errorText: { color: "#C0392B", fontSize: 14 },
   result: { marginTop: 18, padding: 16, borderRadius: 12, alignItems: "center" },
   score: { fontSize: 40, fontWeight: "700" },
   verdict: { fontSize: 15, fontWeight: "600" },
   note: { fontSize: 11, color: "#5A6672", marginTop: 2, textAlign: "center" },
-
   why: { width: "100%", marginTop: 14, borderTopWidth: 1, borderTopColor: "rgba(0,0,0,0.08)", paddingTop: 12 },
   whyTitle: { fontSize: 12, fontWeight: "600", color: "#5A6672", marginBottom: 10 },
   whyRow: { flexDirection: "row", alignItems: "center", marginBottom: 8 },
@@ -132,9 +169,9 @@ const styles = StyleSheet.create({
   whyBar: { flex: 1, height: 14, backgroundColor: "#fff", borderWidth: 1, borderColor: "#E4E7E4",
             borderRadius: 5, overflow: "hidden", marginHorizontal: 8 },
   whyVal: { fontSize: 12, fontWeight: "600", width: 40, textAlign: "right" },
-
   decide: { flexDirection: "row", marginTop: 16, gap: 10, width: "100%" },
   dBtn: { flex: 1, minHeight: 44, borderWidth: 1, borderRadius: 8,
-          alignItems: "center", justifyContent: "center", backgroundColor: "#fff", paddingHorizontal: 12 },
-  dText: { color: "#2E7D46", fontWeight: "600", fontSize: 14, lineHeight: 20, textAlign: "center" },
+          alignItems: "center", justifyContent: "center", paddingHorizontal: 12 },
+  dText: { fontWeight: "600", fontSize: 14, lineHeight: 20, textAlign: "center" },
+  decisionMsg: { marginTop: 12, fontSize: 14, fontWeight: "600" },
 });
