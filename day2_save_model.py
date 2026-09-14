@@ -7,7 +7,7 @@ from sklearn.model_selection import KFold
 from sklearn.metrics import mean_squared_error, r2_score
 
 print("Loading dry.csv...")
-df = pd.read_csv("dry.csv")
+df = pd.read_csv("data/dry.csv")
 df.columns = df.columns.str.strip()
 
 df["PCI"] = pd.to_numeric(df["PCI"], errors="coerce")

@@ -45,7 +45,7 @@ def test_batch_predictions():
     print("=" * 65)
     print()
 
-    df = pd.read_csv("dry.csv")
+    df = pd.read_csv("data/dry.csv")
     df.columns = df.columns.str.strip()
     print(f"  Loaded dry.csv: {len(df)} rows")
     print()

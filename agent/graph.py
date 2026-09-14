@@ -1,11 +1,13 @@
 # ============================================================
-# agent/graph.py — The LangGraph workflow builder (Day 5 update)
+# agent/graph.py — DAY 7 UPDATE
 # ============================================================
-# DAY 5 CHANGES:
-#   - Added a conditional edge AFTER check_output
-#   - If needs_retry is True AND retries left → loop back to predict_pci
-#   - If needs_retry is False → go to END (either success or gave up)
-#   - This is the "continuous feedback loop" from the architecture diagram
+# DAY 7 CHANGES:
+#   - Imported the new recommend_maintenance node
+#   - Added it to the graph
+#   - Changed the conditional edge after check_output:
+#       old: needs_retry ? predict_pci : END
+#       new: needs_retry ? predict_pci : recommend_maintenance
+#   - Added final edge: recommend_maintenance → END
 #
 # The workflow is now:
 #
@@ -13,47 +15,67 @@
 #                                    ↑                            |
 #                                    |                      needs_retry?
 #                                    |                       /        \
-#                                    +---- YES (loop back)  NO → END
+#                                    +---- YES (loop back)  NO
+#                                                            |
+#                                                            v
+#                                                  recommend_maintenance
+#                                                            |
+#                                                            v
+#                                                           END
 # ============================================================
 
 from langgraph.graph import StateGraph, END
-from agent.nodes import validate_input, predict_pci, explain_pci, check_output
+from agent.nodes import (
+    validate_input,
+    predict_pci,
+    explain_pci,
+    check_output,
+    recommend_maintenance,   # DAY 7 NEW
+)
 
 
 def build_graph():
     """
-    Builds and compiles the LangGraph workflow with feedback loop.
+    Builds and compiles the LangGraph workflow with:
+    - Input validation
+    - Prediction (XGBoost)
+    - Explanation (SHAP)
+    - Output validation + retry loop
+    - Maintenance recommendation (Human Oversight)   [Day 7]
     """
 
     graph = StateGraph(dict)
 
-    # Add all 4 nodes
+    # ---- Add all 5 nodes ----
     graph.add_node("validate_input", validate_input)
     graph.add_node("predict_pci", predict_pci)
     graph.add_node("explain_pci", explain_pci)
     graph.add_node("check_output", check_output)
+    graph.add_node("recommend_maintenance", recommend_maintenance)   # DAY 7 NEW
 
-    # Set the starting point
+    # ---- Set the starting point ----
     graph.set_entry_point("validate_input")
 
-    # CONDITIONAL EDGE 1: After validate_input
-    # If valid → predict. If invalid → stop.
+    # ---- Edge after validate_input: valid → predict, invalid → END ----
     graph.add_conditional_edges(
         "validate_input",
         lambda state: "predict_pci" if state.get("is_valid") else END,
     )
 
-    # Simple edges: predict → explain → check
+    # ---- Simple edges through the middle of the graph ----
     graph.add_edge("predict_pci", "explain_pci")
     graph.add_edge("explain_pci", "check_output")
 
-    # DAY 5 ADDITION: CONDITIONAL EDGE 2: After check_output
-    # If needs_retry → loop back to predict_pci (the feedback loop!)
-    # If no retry needed → END (either success or gave up after max retries)
+    # ---- Edge after check_output ----
+    # DAY 7 CHANGE: on success we now go to recommend_maintenance
+    #               (previously went straight to END)
     graph.add_conditional_edges(
         "check_output",
-        lambda state: "predict_pci" if state.get("needs_retry") else END,
+        lambda state: "predict_pci" if state.get("needs_retry") else "recommend_maintenance",
     )
+
+    # ---- DAY 7 NEW: recommend_maintenance is the final node ----
+    graph.add_edge("recommend_maintenance", END)
 
     return graph.compile()
 
@@ -70,8 +92,8 @@ def run_agent(input_data):
         "factors": None,
         "is_valid": None,
         "error": None,
-        "retry_count": 0,       # DAY 5: track retry attempts
-        "needs_retry": False,   # DAY 5: flag for feedback loop
+        "retry_count": 0,
+        "needs_retry": False,
     }
 
     final_state = graph.invoke(initial_state)
@@ -80,6 +102,10 @@ def run_agent(input_data):
         return final_state["response"]
     else:
         return {
-            "pci": None, "band": "Error", "factors": [],
+            "pci": None,
+            "band": "Error",
+            "factors": [],
             "note": final_state.get("error", "Unknown error"),
+            "recommendation": "No recommendation available — agent failed.",
+            "priority": "N/A",
         }
