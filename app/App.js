@@ -24,6 +24,12 @@ function band(pci) {
   return { label: "Poor", color: "#C0392B", bg: "#F8E9E7" };
 }
 
+function priorityColor(p) {
+  if (p === "High") return "#C0392B";
+  if (p === "Medium") return "#C77D12";
+  return "#2E7D46";
+}
+
 export default function App() {
   const [values, setValues] = useState({});
   const [result, setResult] = useState(null);
@@ -63,7 +69,7 @@ export default function App() {
   return (
     <ScrollView
       style={styles.page}
-      contentContainerStyle={{ padding: 20, paddingTop: 50, maxWidth: 480, width: "100%", alignSelf: "center" }}
+      contentContainerStyle={{ padding: 20, paddingTop: 50, paddingBottom: 60, maxWidth: 480, width: "100%", alignSelf: "center" }}
     >
       <Text style={styles.h1}>Predict PCI</Text>
       <Text style={styles.sub}>Enter section data, then predict</Text>
@@ -121,6 +127,20 @@ export default function App() {
             </View>
           )}
 
+          {result.recommendation && (
+            <View style={styles.recBox}>
+              <View style={styles.recHead}>
+                <Text style={styles.recTitle}>Recommended action</Text>
+                {result.priority && (
+                  <View style={[styles.badge, { backgroundColor: priorityColor(result.priority) }]}>
+                    <Text style={styles.badgeText}>{result.priority} priority</Text>
+                  </View>
+                )}
+              </View>
+              <Text style={styles.recText}>{result.recommendation}</Text>
+            </View>
+          )}
+
           <View style={styles.decide}>
             <TouchableOpacity
               onPress={() => setDecision("approved")}
@@ -165,10 +185,16 @@ const styles = StyleSheet.create({
   why: { width: "100%", marginTop: 14, borderTopWidth: 1, borderTopColor: "rgba(0,0,0,0.08)", paddingTop: 12 },
   whyTitle: { fontSize: 12, fontWeight: "600", color: "#5A6672", marginBottom: 10 },
   whyRow: { flexDirection: "row", alignItems: "center", marginBottom: 8 },
-  whyName: { fontSize: 12, color: "#5A6672", width: 120 },
+  whyName: { fontSize: 12, color: "#5A6672", width: 130 },
   whyBar: { flex: 1, height: 14, backgroundColor: "#fff", borderWidth: 1, borderColor: "#E4E7E4",
             borderRadius: 5, overflow: "hidden", marginHorizontal: 8 },
-  whyVal: { fontSize: 12, fontWeight: "600", width: 40, textAlign: "right" },
+  whyVal: { fontSize: 12, fontWeight: "600", width: 44, textAlign: "right" },
+  recBox: { width: "100%", marginTop: 14, padding: 12, backgroundColor: "#EAF1F8", borderRadius: 10 },
+  recHead: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 6, flexWrap: "wrap" },
+  recTitle: { fontSize: 12, fontWeight: "600", color: "#2E5E8C" },
+  badge: { paddingHorizontal: 10, paddingVertical: 2, borderRadius: 99 },
+  badgeText: { color: "#fff", fontSize: 11, fontWeight: "700" },
+  recText: { fontSize: 13, color: "#1B2430", lineHeight: 19 },
   decide: { flexDirection: "row", marginTop: 16, gap: 10, width: "100%" },
   dBtn: { flex: 1, minHeight: 44, borderWidth: 1, borderRadius: 8,
           alignItems: "center", justifyContent: "center", paddingHorizontal: 12 },

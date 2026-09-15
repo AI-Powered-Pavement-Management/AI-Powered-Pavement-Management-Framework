@@ -21,6 +21,12 @@ function band(pci) {
   return { label: "Poor", color: "#C0392B", bg: "#F8E9E7" };
 }
 
+function priorityColor(p) {
+  if (p === "High") return "#C0392B";
+  if (p === "Medium") return "#C77D12";
+  return "#2E7D46";
+}
+
 const S = {
   page: { minHeight: "100vh", padding: "40px 24px" },
   card: { maxWidth: 880, margin: "0 auto", background: "#fff",
@@ -147,17 +153,34 @@ export default function App() {
                   const w = Math.min(100, Math.abs(f.value) * 8);
                   return (
                     <div key={f.name} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
-                      <span style={{ fontSize: 12, width: 140, color: "#5A6672" }}>{f.name}</span>
+                      <span style={{ fontSize: 12, width: 160, color: "#5A6672" }}>{f.name}</span>
                       <div style={{ flex: 1, height: 14, background: "#fff",
                                     border: "1px solid #E4E7E4", borderRadius: 5, overflow: "hidden" }}>
                         <div style={{ width: `${w}%`, height: "100%", background: c }} />
                       </div>
-                      <span style={{ fontSize: 12, fontWeight: 600, color: c, width: 44, textAlign: "right" }}>
+                      <span style={{ fontSize: 12, fontWeight: 600, color: c, width: 48, textAlign: "right" }}>
                         {pos ? "+" : "−"}{Math.abs(f.value)}
                       </span>
                     </div>
                   );
                 })}
+              </div>
+            )}
+
+            {result.recommendation && (
+              <div style={{ marginTop: 16, padding: 14, background: "#EAF1F8", borderRadius: 10 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6, flexWrap: "wrap" }}>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: "#2E5E8C" }}>Recommended action</span>
+                  {result.priority && (
+                    <span style={{
+                      fontSize: 11, fontWeight: 700, padding: "2px 10px", borderRadius: 99,
+                      color: "#fff", background: priorityColor(result.priority),
+                    }}>
+                      {result.priority} priority
+                    </span>
+                  )}
+                </div>
+                <div style={{ fontSize: 13, color: "#1B2430", lineHeight: 1.5 }}>{result.recommendation}</div>
               </div>
             )}
 
