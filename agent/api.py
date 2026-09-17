@@ -3,6 +3,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional
 from agent.graph import run_agent
+import json
+from datetime import datetime
 
 app = FastAPI(title="PCI Prediction API")
 
@@ -28,6 +30,13 @@ class PavementInput(BaseModel):
     Sieve200_subgrade: Optional[float] = None
     Sieve200_base: Optional[float] = None
 
+# The human decision sent when Approve/Reject is clicked.
+class DecisionInput(BaseModel):
+    pci: Optional[float] = None
+    band: Optional[str] = None
+    priority: Optional[str] = None
+    decision: str          # "approved" or "rejected"
+
 @app.get("/")
 def home():
     return {"status": "API is running"}
@@ -40,3 +49,17 @@ def predict(data: PavementInput):
     except Exception as e:
         return {"pci": None, "band": "Error", "factors": [], "note": f"Agent failed: {str(e)}"}
     return result
+
+@app.post("/decision")
+def decision(data: DecisionInput):
+    record = {
+        "time": datetime.now().isoformat(timespec="seconds"),
+        "pci": data.pci,
+        "band": data.band,
+        "priority": data.priority,
+        "decision": data.decision,
+    }
+    # append one line per decision to a log file
+    with open("decisions_log.jsonl", "a") as f:
+        f.write(json.dumps(record) + "\n")
+    return {"status": "saved", "record": record}

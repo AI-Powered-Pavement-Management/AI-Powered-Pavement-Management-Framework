@@ -2,6 +2,7 @@ import { useState } from "react";
 import { ScrollView, View, Text, TextInput, TouchableOpacity, StyleSheet } from "react-native";
 
 const API_URL = "http://127.0.0.1:8000/predict";
+const DECISION_URL = "http://127.0.0.1:8000/decision";
 
 const GROUPS = [
   { title: "Pavement structure", fields: [
@@ -61,6 +62,24 @@ export default function App() {
       setError("Could not reach API. Is uvicorn running on port 8000?");
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function sendDecision(choice) {
+    setDecision(choice);   // update UI immediately
+    try {
+      await fetch(DECISION_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          pci: result.pci,
+          band: result.band,
+          priority: result.priority,
+          decision: choice,
+        }),
+      });
+    } catch (e) {
+      console.log("Could not save decision", e);
     }
   }
 
@@ -143,12 +162,12 @@ export default function App() {
 
           <View style={styles.decide}>
             <TouchableOpacity
-              onPress={() => setDecision("approved")}
+              onPress={() => sendDecision("approved")}
               style={[styles.dBtn, { borderColor: "#2E7D46", backgroundColor: decision === "approved" ? "#2E7D46" : "#fff" }]}>
               <Text style={[styles.dText, { color: decision === "approved" ? "#fff" : "#2E7D46" }]}>Approve</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              onPress={() => setDecision("rejected")}
+              onPress={() => sendDecision("rejected")}
               style={[styles.dBtn, { borderColor: "#C0392B", backgroundColor: decision === "rejected" ? "#C0392B" : "#fff" }]}>
               <Text style={[styles.dText, { color: decision === "rejected" ? "#fff" : "#C0392B" }]}>Reject</Text>
             </TouchableOpacity>
@@ -156,7 +175,7 @@ export default function App() {
 
           {decision && (
             <Text style={[styles.decisionMsg, { color: decision === "approved" ? "#2E7D46" : "#C0392B" }]}>
-              {decision === "approved" ? "✓ Approved by engineer" : "✕ Rejected by engineer"}
+              {decision === "approved" ? "✓ Approved by engineer (saved)" : "✕ Rejected by engineer (saved)"}
             </Text>
           )}
         </View>

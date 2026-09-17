@@ -1,6 +1,7 @@
 import { useState } from "react";
 
 const API_URL = "http://127.0.0.1:8000/predict";
+const DECISION_URL = "http://127.0.0.1:8000/decision";
 
 const GROUPS = [
   { title: "Pavement structure", fields: [
@@ -80,6 +81,24 @@ export default function App() {
     }
   };
 
+  const sendDecision = async (choice) => {
+    setDecision(choice);   // update UI immediately
+    try {
+      await fetch(DECISION_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          pci: result.pci,
+          band: result.band,
+          priority: result.priority,
+          decision: choice,
+        }),
+      });
+    } catch (e) {
+      console.log("Could not save decision", e);
+    }
+  };
+
   const b = result ? band(result.pci) : null;
 
   return (
@@ -122,7 +141,7 @@ export default function App() {
               </div>
               <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
                 <button
-                  onClick={() => setDecision("approved")}
+                  onClick={() => sendDecision("approved")}
                   style={{ height: 38, padding: "0 16px",
                            border: decision === "approved" ? "2px solid #2E7D46" : "1px solid #2E7D46",
                            background: decision === "approved" ? "#2E7D46" : "#fff",
@@ -131,7 +150,7 @@ export default function App() {
                   Approve
                 </button>
                 <button
-                  onClick={() => setDecision("rejected")}
+                  onClick={() => sendDecision("rejected")}
                   style={{ height: 38, padding: "0 16px",
                            border: decision === "rejected" ? "2px solid #C0392B" : "1px solid #C0392B",
                            background: decision === "rejected" ? "#C0392B" : "#fff",
@@ -188,8 +207,8 @@ export default function App() {
               <div style={{ marginTop: 14, fontSize: 14, fontWeight: 600,
                             color: decision === "approved" ? "#2E7D46" : "#C0392B" }}>
                 {decision === "approved"
-                  ? "✓ Result approved by engineer"
-                  : "✕ Result rejected by engineer"}
+                  ? "✓ Result approved by engineer (saved)"
+                  : "✕ Result rejected by engineer (saved)"}
               </div>
             )}
           </div>
