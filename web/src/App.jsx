@@ -1,7 +1,8 @@
 import { useState } from "react";
 
-const API_URL = "http://127.0.0.1:8000/predict";
-const DECISION_URL = "http://127.0.0.1:8000/decision";
+const API_BASE = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
+const API_URL = `${API_BASE}/predict`;
+const DECISION_URL = `${API_BASE}/decision`;
 
 const GROUPS = [
   { title: "Pavement structure", fields: [
