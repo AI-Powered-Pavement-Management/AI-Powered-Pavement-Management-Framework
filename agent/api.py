@@ -11,7 +11,7 @@ app = FastAPI(title="PCI Prediction API")
 # Allow the web/app (different port) to call this API
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],      # fine for local prototype
+    allow_origins=["https://ai-powered-pavement-management-fram.vercel.app", "http://localhost:5173"],      # fine for local prototype
     allow_methods=["*"],
     allow_headers=["*"],
 )
